@@ -13,7 +13,6 @@
 import assert from 'node:assert/strict';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../js/config.js';
 import { montarGrade, montarLinhaDoAluno } from '../js/grade.js';
-import { renderProgressoDoAluno } from '../js/render.js';
 
 const exigido = (nome) => {
   const v = process.env[nome];
@@ -93,7 +92,7 @@ try {
   });
   assert.equal(repetida.ok, false, 'o banco aceitou marcacao duplicada');
 
-  // le exatamente como a tela do aluno le
+  // le exatamente como a grade da professora le
   const alunos = await como(
     `aluno?turma_id=eq.${idTurma}&select=id,nome,avatar&order=nome`
   );
@@ -111,12 +110,6 @@ try {
   assert.equal(linha.celulas.length, 2, 'a grade nao tem as duas atividades');
   assert.equal(linha.concluidas, 1, 'a contagem nao deu 1 de 2');
 
-  const html = renderProgressoDoAluno(linha);
-  assert.match(html, /Contar ate 10/, 'a atividade marcada nao apareceu');
-  assert.match(html, /atividade concluida/, 'a atividade nao apareceu como concluida');
-  assert.match(html, /atividade pendente/, 'a atividade pendente nao apareceu');
-  assert.match(html, /Ana &amp; Bruno/, 'o nome nao foi escapado');
-  assert.ok(!html.includes('aria-pressed'), 'apareceu controle de escrita na tela do aluno');
 
   console.log('OK: caminho critico verificado de ponta a ponta');
 } finally {

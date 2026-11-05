@@ -113,3 +113,13 @@ test('montarLinhaDoAluno devolve nulo para aluno inexistente', () => {
   const g = montarGrade(ALUNOS, ATIVIDADES, []);
   assert.equal(montarLinhaDoAluno(g, 'nao-existe'), null);
 });
+
+test('apenasManual deixa so o que a professora marcou', async () => {
+  const { apenasManual } = await import('../js/grade.js');
+  const pr = [
+    { aluno_id: 'a1', atividade_id: 't1', origem: 'professor' },
+    { aluno_id: 'a1', atividade_id: 't2', origem: 'jogo' },
+  ];
+  assert.deepEqual(apenasManual(pr), [pr[0]]);
+  assert.deepEqual(apenasManual(undefined), []);
+});

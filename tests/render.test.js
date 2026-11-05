@@ -3,13 +3,14 @@ import assert from 'node:assert/strict';
 import {
   escaparHtml,
   renderGrade,
-  renderAvataresDaTurma,
-  renderProgressoDoAluno,
   renderAreaAluno,
   renderSeletorAvatar,
+  renderEscolhaTurma,
+  renderEscolhaAluno,
 } from '../js/render.js';
+import { existsSync } from 'node:fs';
 import { URL_DOWNLOAD_JOGO, AVATARES } from '../js/config.js';
-import { montarGrade, montarLinhaDoAluno } from '../js/grade.js';
+import { montarGrade } from '../js/grade.js';
 
 const ALUNOS = [
   { id: 'a1', nome: 'Ana', avatar: 'coruja' },
@@ -85,16 +86,6 @@ test('grade vazia explica o que falta em vez de mostrar nada', () => {
   assert.match(renderGrade(montarGrade(ALUNOS, [], [])), /atividade/i);
 });
 
-// --- telas do aluno ---
-
-test('seletor de avatar tem um botao grande por aluno', () => {
-  const html = renderAvataresDaTurma(ALUNOS);
-  assert.ok(html.includes('data-aluno="a1"'));
-  assert.ok(html.includes('data-aluno="a2"'));
-  assert.ok(html.includes('\u{1F989}'), 'falta o emoji da coruja');
-  assert.ok(html.includes('Ana'), 'o nome acompanha o avatar');
-});
-
 // --- o campo de avatar do formulario de cadastro ---
 //
 // Contexto do bug, visto no navegador em 2026-10-31: depois de cadastrar a Ana
@@ -157,106 +148,70 @@ test('turma que esgotou os bichinhos ainda deixa cadastrar', () => {
   assert.ok(html.includes('(em uso)'), 'o aviso continua visivel');
 });
 
-test('avatar desconhecido nao quebra o seletor', () => {
-  const html = renderAvataresDaTurma([{ id: 'a9', nome: 'Caio', avatar: 'dinossauro' }]);
-  assert.ok(html.includes('Caio'));
-  assert.ok(html.includes('data-aluno="a9"'));
-});
-
-test('progresso do aluno nao tem nenhum controle de escrita', () => {
-  const g = montarGrade(ALUNOS, ATIVIDADES, [
-    { aluno_id: 'a1', atividade_id: 'at1', origem: 'professor' },
-  ]);
-  const html = renderProgressoDoAluno(montarLinhaDoAluno(g, 'a1'));
-
-  assert.ok(html.includes('Contar ate 10'));
-  assert.ok(!html.includes('<input'), 'o aluno nao digita nada (spec D3)');
-  assert.ok(!html.includes('data-atividade='), 'nenhuma celula clicavel na tela do aluno');
-  assert.ok(!/\u274C|\u2716/.test(html), 'atividade pendente nao leva X (spec D7)');
-});
-
-test('progresso mostra quantas atividades foram concluidas', () => {
-  const g = montarGrade(ALUNOS, ATIVIDADES, [
-    { aluno_id: 'a1', atividade_id: 'at1', origem: 'professor' },
-  ]);
-  const html = renderProgressoDoAluno(montarLinhaDoAluno(g, 'a1'));
-  assert.match(html, /1\s*\D{0,12}2/, 'esperado algo como "1 de 2"');
-});
-
-// Review Focus 5
-test('area do aluno sem turma ativa manda chamar o professor', () => {
-  const html = renderAreaAluno({ estado: 'sem-turma' });
-  assert.match(html, /professor/i);
-  assert.ok(!html.includes('data-aluno='), 'nao ha avatar para clicar');
-});
-
-test('area do aluno em carregamento nao fica em branco', () => {
-  assert.ok(renderAreaAluno({ estado: 'carregando' }).trim().length > 0);
-});
-
-test('area do aluno com turma sem alunos explica a situacao', () => {
-  const html = renderAreaAluno({ estado: 'escolher', alunos: [] });
-  assert.match(html, /professor/i);
-});
-
-test('area do aluno nao tem nenhum controle de escrita', () => {
-  const alunos = [
-    { id: 'a1', nome: 'Ana', avatar: 'coruja' },
-    { id: 'a2', nome: 'Bruno', avatar: 'tartaruga' },
-  ];
-  const atividades = [{ id: 't1', titulo: 'Contar ate 10', ordem: 1 }];
-  const g = montarGrade(alunos, atividades, [
-    { aluno_id: 'a1', atividade_id: 't1', origem: 'professor' },
-  ]);
-
-  const telas = [
-    renderAreaAluno({ estado: 'sem-turma' }),
-    renderAreaAluno({ estado: 'carregando' }),
-    renderAreaAluno({ estado: 'erro' }),
-    renderAreaAluno({ estado: 'escolher', alunos }),
-    renderAreaAluno({ estado: 'progresso', linha: montarLinhaDoAluno(g, 'a1') }),
-  ];
-
-  for (const html of telas) {
-    assert.ok(!html.includes('<input'), 'nenhum campo de entrada');
-    assert.ok(!html.includes('<textarea'), 'nenhuma area de texto');
-    assert.ok(!html.includes('<select'), 'nenhuma lista de selecao');
-    assert.ok(!html.includes('<form'), 'nenhum formulario');
-    assert.ok(!html.includes('class="celula"'), 'nenhuma celula de marcacao');
-    assert.ok(!html.includes('aria-pressed'), 'nenhum botao de alternar estado');
-  }
-});
-
-// O jogo foi publicado: a build mora num asset de Release e URL_DOWNLOAD_JOGO
-// aponta para ela. Antes disto o teste afirmava o contrario (constante vazia,
-// nenhum link em tela nenhuma) — era o verdadeiro daquele dia.
+// --- tela do aluno: turma -> nome -> download ---
 //
-// O link tem de aparecer em TODAS as telas da crianca, inclusive nas de erro e
-// de carregando: a crianca que chegou na tela do aluno veio para jogar, e se o
-// banco esta fora do ar o download e justamente a unica coisa que ainda
-// funciona. Esconder o botao quando da erro seria tirar o jogo da crianca por
-// causa de um problema do servidor.
-test('com o jogo publicado, toda tela do aluno oferece o download', () => {
-  assert.notEqual(URL_DOWNLOAD_JOGO, '', 'o jogo precisa estar hospedado');
+// A crianca escolhe a turma, depois o proprio nome, e baixa o jogo direto
+// (sem pagina intermediaria). Nao ve progresso e nao digita nada.
 
-  const alunos = [{ id: 'a1', nome: 'Ana', avatar: 'coruja' }];
-  const atividades = [{ id: 't1', titulo: 'Contar ate 10', ordem: 1 }];
-  const g = montarGrade(alunos, atividades, [
-    { aluno_id: 'a1', atividade_id: 't1', origem: 'professor' },
-  ]);
+const TURMAS = [
+  { id: 't1', nome: 'Turma Girassol' },
+  { id: 't2', nome: 'Turma <b>Sol</b>' },
+];
 
-  const telas = [
-    renderAreaAluno({ estado: 'sem-turma' }),
-    renderAreaAluno({ estado: 'carregando' }),
-    renderAreaAluno({ estado: 'erro' }),
-    renderAreaAluno({ estado: 'escolher', alunos }),
-    renderAreaAluno({ estado: 'progresso', linha: montarLinhaDoAluno(g, 'a1') }),
-  ];
+test('a escolha de turma mostra o nome de cada turma, escapado', () => {
+  const html = renderEscolhaTurma(TURMAS);
+  assert.match(html, /Qual é a sua turma\?/);
+  assert.ok(html.includes('data-turma="t1"'));
+  assert.ok(html.includes('Turma Girassol'));
+  assert.ok(html.includes('Turma &lt;b&gt;Sol&lt;/b&gt;'), 'nome de turma tem de ser escapado');
+  assert.ok(!html.includes('<b>'));
+});
 
-  for (const html of telas) {
-    assert.match(html, /class="botao-baixar"/, 'falta o botao de baixar');
-    assert.ok(html.includes(`href="${URL_DOWNLOAD_JOGO}"`), 'o href nao e a URL configurada');
+test('sem turmas, a tela pede o professor', () => {
+  assert.match(renderEscolhaTurma([]), /class="aviso"/);
+});
+
+test('a escolha de aluno mostra a turma e todos os alunos com o bichinho', () => {
+  const html = renderEscolhaAluno(TURMAS[0], ALUNOS);
+  assert.ok(html.includes('Turma Girassol'), 'o nome da turma aparece');
+  assert.match(html, /Quem é você\?/);
+  for (const a of ALUNOS) {
+    assert.ok(html.includes(`data-aluno="${a.id}"`), `falta o botao de ${a.nome}`);
+    assert.ok(html.includes(a.nome));
   }
+  assert.ok(html.includes('\u{1F989}'), 'o bichinho da Ana (coruja) aparece');
+  assert.ok(html.includes('data-voltar="turma"'), 'da para trocar de turma');
+});
+
+test('turma sem alunos avisa e deixa voltar', () => {
+  const html = renderEscolhaAluno(TURMAS[0], []);
+  assert.match(html, /class="aviso"/);
+  assert.ok(html.includes('data-voltar="turma"'));
+});
+
+test('o botao de baixar aponta direto para o arquivo do jogo', () => {
+  assert.notEqual(URL_DOWNLOAD_JOGO, '', 'o jogo precisa estar hospedado');
+  const html = renderAreaAluno(ALUNOS[0]);
+  assert.match(html, /class="botao-baixar"/, 'falta o botao de baixar');
+  assert.ok(html.includes(`href="${URL_DOWNLOAD_JOGO}"`), 'o link tem de ser o arquivo, sem pagina intermediaria');
+  assert.ok(!html.includes('.html'), 'nao pode levar a outra pagina');
+  assert.equal((html.match(/<a /g) ?? []).length, 1, 'o download e o unico link da tela');
+  assert.ok(html.includes('Oi, Ana!'), 'cumprimenta o aluno escolhido');
+  assert.ok(html.includes('data-voltar="aluno"'), 'da para dizer "nao sou eu"');
+});
+
+test('a tela do aluno nao mostra progresso', () => {
+  for (const html of [renderEscolhaTurma(TURMAS), renderEscolhaAluno(TURMAS[0], ALUNOS), renderAreaAluno(ALUNOS[0])]) {
+    assert.ok(!/conseguiu|atividade/i.test(html), 'o aluno nao ve progresso');
+    assert.ok(!/<canvas/i.test(html), 'nao pode haver jogo desenhado na tela');
+    for (const tag of ['<input', '<textarea', '<select', '<form']) {
+      assert.ok(!html.includes(tag), `a crianca nao digita nada (${tag})`);
+    }
+  }
+});
+
+test('a pagina intermediaria de download nao existe mais', () => {
+  assert.ok(!existsSync(new URL('../baixar.html', import.meta.url)));
 });
 
 // Um endereco http:// num link que a escola vai clicar e um download que
@@ -264,4 +219,10 @@ test('com o jogo publicado, toda tela do aluno oferece o download', () => {
 // deixa a constante cair para http por descuido numa troca de hospedagem.
 test('a URL do jogo e https', () => {
   assert.match(URL_DOWNLOAD_JOGO, /^https:\/\//, 'o download tem de ser por https');
+});
+
+test('grade vazia oferece o atalho para cadastrar o que falta', () => {
+  assert.match(renderGrade(montarGrade([], [], [])), /data-ir-aba="alunos".*data-ir-aba="atividades"/s);
+  assert.match(renderGrade(montarGrade([], ATIVIDADES, [])), /data-ir-aba="alunos"/);
+  assert.match(renderGrade(montarGrade(ALUNOS, [], [])), /data-ir-aba="atividades"/);
 });

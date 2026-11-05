@@ -12,9 +12,8 @@ intelectual, feita para uso real em escola parceira.
 Abra o endereço acima. A tela de entrada pergunta quem está no computador, e os dois
 caminhos existem de propósito:
 
-- **"Sou aluno"** — tela de progresso. A criança escolhe o avatar dela e vê o que já
-  conseguiu. **Ela não digita nada em momento nenhum.** Essa é a decisão central do
-  projeto, não um detalhe de interface.
+- **"Sou aluno"** — a criança escolhe a turma, depois o próprio nome, e clica em
+  **"Baixar o jogo"**, que baixa direto a versão Windows. **Não digita nada e não vê progresso.**
 - **"Sou professor"** — login, e de lá o cadastro de turma, aluno, atividade e
   progresso.
 
@@ -40,23 +39,16 @@ própria e estas três são apagadas.
 
 ### Roteiro de 5 minutos
 
-1. Entre com uma das contas. Você cai numa turma montada — clique em
-   **"Usar esta turma"**.
+1. Entre com uma das contas. Você cai numa turma montada.
 2. Cadastre um aluno e escolha o avatar dele (são 30 bichos).
 3. Cadastre uma atividade.
 4. Marque a atividade como feita para um ou dois alunos.
-5. Volte à entrada, clique em **"Sou aluno"** e escolha o avatar que você criou. É isso
-   que a criança vê.
+5. Volte à entrada e clique em **"Sou aluno"**: é isso que a criança vê — turma,
+   nome e o download do jogo.
 
 Depois entre numa conta diferente: a turma da anterior **desaparece**. Não é a tela
 escondendo — é o banco recusando, por professor. Mexer no endereço do navegador não
 contorna.
-
-### Uma pegadinha de sala de aula
-
-A turma ativa fica gravada **no navegador**, separada por endereço. Em cada computador
-da escola a professora precisa entrar no site e clicar "Usar esta turma" uma vez.
-Depois aquele computador lembra.
 
 ---
 
@@ -64,7 +56,7 @@ Depois aquele computador lembra.
 
 | Pessoa | Produto | Arquivos |
 |---|---|---|
-| Pedro Henrique dos Santos Alves | Layout | `style.css`, `principal.html`, `perfil.html`, `script.js`, `login.html`, `cadastro.html` |
+| Pedro Henrique dos Santos Alves | Layout | `style.css`, `principal.html`, `login.html`, `cadastro.html` |
 | Olívia de Carvalho | Jogos (Unity) | fora deste repositório |
 | Fabiano S. | Perfis, Login e Progresso | `js/`, `css/plataforma.css`, `sql/`, `tests/`, `professor.html`, `index.html` |
 
@@ -74,22 +66,20 @@ que não deu para ser aditivo. Quem for mexer, mantenha isso.
 
 ---
 
-## O que ainda NÃO está ligado
+## O jogo (2026-11-04)
 
-**O jogo e a plataforma funcionam lado a lado, não juntos.** O botão "Baixar o jogo"
-entrega o jogo certo, mas quando a criança joga, **o jogo não avisa a plataforma** —
-quem marca o que foi concluído é a professora, na mão.
+O jogo é **só a versão Windows** feita na Unity pela Olívia. Na tela do aluno, o
+botão **"Baixar o jogo"** baixa o arquivo direto, sem página intermediária
+(o endereço fica em `URL_DOWNLOAD_JOGO`, em `js/config.js`). A lista de turmas e
+de alunos vem do banco pela sessão do professor: ele precisa ter entrado uma vez
+naquele computador.
 
-O banco já está pronto para os dois casos: cada progresso grava uma origem,
-`'professor'` ou `'jogo'` (`sql/schema.sql`). Hoje só existe `'professor'`; o lugar do
-jogo está pronto e vazio.
+**Não existe jogo rodando no navegador.** Uma recriação em JavaScript chegou a
+existir (2026-11-03) e foi retirada por decisão do projeto.
 
-Ligar isso tem dois caminhos, e **a escolha é uma decisão de equipe ainda aberta**:
-
-- **Caminho A** — o jogo faz uma chamada de rede ao fim de cada fase e a plataforma
-  registra sozinha. Mais completo; exige mexer no projeto Unity.
-- **Caminho B** — a plataforma só exibe o que o jogo guardar no próprio computador.
-  Mais rápido; o progresso fica preso àquela máquina.
+**O progresso é da professora.** O jogo não grava nada na plataforma: quem marca o
+que cada aluno conseguiu é a professora, na aba "Marcar progresso". O aluno não vê
+nada disso: a tela dele é só o download do jogo.
 
 ---
 
@@ -124,7 +114,7 @@ entra aqui.
 npm test
 ```
 
-80 testes, sem dependência externa — só o `node --test`. **As aspas no comando são
+Testes sem dependência externa — só o `node --test`. **As aspas no comando são
 obrigatórias** no Git Bash do Windows, senão o shell expande o `*` antes do Node e o
 teste roda vazio.
 

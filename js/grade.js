@@ -58,3 +58,10 @@ export function montarGrade(alunos, atividades, progresso) {
 export function montarLinhaDoAluno(grade, idAluno) {
   return grade.linhas.find((l) => l.aluno.id === idAluno) ?? null;
 }
+
+// A grade e manual: so conta o que a professora marcou. Registros com outra
+// origem (o jogo chegou a gravar 'jogo' numa versao anterior) ficam no banco,
+// mas nao aparecem nem somam em lugar nenhum.
+export function apenasManual(progresso) {
+  return (Array.isArray(progresso) ? progresso : []).filter((p) => p.origem === 'professor');
+}
